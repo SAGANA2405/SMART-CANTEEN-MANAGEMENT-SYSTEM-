@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Smart Canteen Management</title>
+
+<style>
+  body {
+    background-image: url('https://images.unsplash.com/photo-1504674900247-0877df9cc836');
+    background-size: cover;
+    background-position: center;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    color: white;
+  }
+  .overlay {
+    background: rgba(0,0,0,0.5);
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index:1;
+  }
+  .container {
+    position: relative;
+    z-index:2;
+    padding: 30px;
+    text-align: center;
+  }
+  .box {
+    background: rgba(255,255,255,0.15);
+    padding: 20px;
+    border-radius: 10px;
+    margin: 20px auto;
+    width: 80%;
+  }
+  button {
+    padding: 18px 32px;
+    margin: 12px;
+    border: none;
+    background: #ffcc00;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 20px;
+    font-weight: bold;
+  }
+  input, select {
+    padding:10px;
+    font-size:18px;
+    margin:5px;
+  }
+  ul{ text-align:left; }
+</style>
+</head>
+
+<body>
+
+<div class="overlay"></div>
+
+<div class="container">
+<h1>Fresh Bite Smart Canteen</h1>
+<h3>Opening Time: 7:00 AM | Closing Time: 10:00 PM</h3>
+
+<!-- LOGIN -->
+<div class="box" id="loginBox">
+<h2>Login As</h2>
+<button onclick="showAdminLogin()">Admin</button>
+<button onclick="showCustomerSection()">Customer</button>
+</div>
+
+<!-- ADMIN LOGIN -->
+<div id="adminLogin" class="box" style="display:none;">
+<h2>Admin Login</h2>
+<input type="password" id="adminPass" placeholder="Enter Secret Password" />
+<button onclick="checkAdmin()">Submit</button>
+<p id="adminError" style="color:red;"></p>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="adminPanel" class="box" style="display:none;">
+<h2>Admin Panel</h2>
+<button onclick="showAddItem()">Add Items</button>
+<button onclick="showDeleteItem()">Delete Items</button>
+<button onclick="showOrders()">View Orders</button>
+<button onclick="returnHome()">Finish & Return Home</button>
+<div id="adminContent" style="margin-top:20px;"></div>
+</div>
+
+<!-- CUSTOMER DETAILS -->
+<div id="customerSection" class="box" style="display:none;">
+<h2>Enter your Details</h2>
+<input type="text" id="custName" placeholder="Your Name" /><br>
+<input type="text" id="custPhone" placeholder="Phone Number" /><br>
+<p id="phoneError" style="color:red;"></p>
+<button onclick="validateCustomer()">Continue</button>
+</div>
+
+<!-- MEAL OPTIONS -->
+<div id="mealOptions" class="box" style="display:none;">
+<h2>Select Meal</h2>
+<button onclick="checkMealTime('breakfast')">Breakfast</button>
+<button onclick="checkMealTime('lunch')">Lunch</button>
+<button onclick="checkMealTime('dinner')">Dinner</button>
+<p id="mealMsg" style="color:yellow;"></p>
+</div>
+
+<!-- CATEGORY -->
+<div id="vegNonVeg" class="box" style="display:none;">
+<h2>Select Category</h2>
+<button onclick="showMenu('veg')">Veg</button>
+<button onclick="showMenu('nonveg')">Non-Veg</button>
+</div>
+
+<!-- MENU -->
+<div id="menuSection" class="box" style="display:none;"></div>
+
+<!-- PAYMENT -->
+<div id="nextPage" class="box" style="display:none;"></div>
+
+
+<!-- ========================== SCRIPT ============================= -->
+
+<script>
+
+// Global Variables
+let tokenCounter = 1001;
+let orders = [];
+let currentCart = [];
+let savedCustomers = {}; // Remember regular customer
+
+
+// Menu Items
+let fullMenu = {
+  veg: [
+    {name:"Idly", price:20},
+    {name:"Dosa", price:40},
+    {name:"Poori", price:45},
+    {name:"Veg Biryani", price:90},
+    {name:"Meals", price:110}
+  ],
+  nonveg: [
+    {name:"Chicken Biryani", price:150},
+    {name:"Mutton Biryani", price:200},
+    {name:"Fish Fry", price:120},
+    {name:"Egg Curry", price:60}
+  ]
+};
+
+
+// ADMIN LOGIN
+function showAdminLogin(){
+  document.getElementById('loginBox').style.display='none';
+  document.getElementById('adminLogin').style.display='block';
+}
+
+function checkAdmin(){
+  let p = document.getElementById('adminPass').value;
+  if(p === '1234'){
+    document.getElementById('adminLogin').style.display='none';
+    document.getElementById('adminPanel').style.display='block';
+  } else {
+    document.getElementById('adminError').innerHTML = 'Wrong Password';
+  }
+}
+
+
+// ADMIN – ADD ITEM
+function showAddItem(){
+  let content = document.getElementById('adminContent');
+  content.innerHTML = `
+    <h3>Add Item</h3>
+    <input type='text' id='newItem' placeholder='Item Name' /><br>
+    <input type='number' id='newPrice' placeholder='Price' /><br>
+    <select id='itemType'><option value='veg'>Veg</option><option value='nonveg'>Non-Veg</option></select><br>
+    <button onclick='addItem()'>Add</button>
+    <p id='addMsg' style='color:lightgreen;'></p>`;
+}
+
+function addItem(){
+  let name = document.getElementById('newItem').value;
+  let price = document.getElementById('newPrice').value;
+  let type = document.getElementById('itemType').value;
+
+  if(name && price){
+    fullMenu[type].push({name, price:Number(price)});
+    document.getElementById('addMsg').innerText='Item Added!';
+  }
+}
+
+
+// ADMIN – DELETE ITEM
+function showDeleteItem(){
+  let content = document.getElementById('adminContent');
+
+  let allItems = [
+    ...fullMenu.veg.map(i => i.name),
+    ...fullMenu.nonveg.map(i => i.name)
+  ];
+
+  let options = allItems.map(i => `<option value='${i}'>${i}</option>`).join('');
+
+  content.innerHTML = `
+    <h3>Delete Item</h3>
+    <select id='delItem'>${options}</select>
+    <button onclick='deleteItem()'>Delete</button>
+    <p id='delMsg' style='color:lightcoral;'></p>`;
+}
+
+function deleteItem(){
+  let name = document.getElementById('delItem').value;
+
+  fullMenu.veg = fullMenu.veg.filter(item => item.name !== name);
+  fullMenu.nonveg = fullMenu.nonveg.filter(item => item.name !== name);
+
+  document.getElementById('delMsg').innerText='Item Deleted!';
+}
+
+
+// ADMIN – VIEW ORDERS
+function showOrders(){
+  let content = document.getElementById('adminContent');
+
+  if(orders.length === 0){
+    content.innerHTML = "<h3>No Orders Yet</h3>";
+    return;
+  }
+
+  let list = "<h3>Orders</h3><ul>" + 
+    orders.map(o => 
+      `<li>
+        Token: ${o.token}, 
+        ${o.name} - ${o.phone}, 
+        Items: ${o.items.map(i => i.name + " x" + i.qty).join(', ')}, 
+        Total: ₹${o.total}, 
+        Payment: ${o.pay},
+        Prep Time: ${o.prep} mins
+      </li>`
+    ).join('') 
+    + "</ul>";
+
+  content.innerHTML = list;
+}
+
+
+// ADMIN – RETURN HOME
+function returnHome(){
+  document.getElementById("adminPanel").style.display="none";
+  document.getElementById("loginBox").style.display="block";
+}
+
+
+
+// CUSTOMER – DETAILS
+function showCustomerSection(){
+  document.getElementById('loginBox').style.display='none';
+  document.getElementById('customerSection').style.display='block';
+
+  let phoneInput = document.getElementById('custPhone');
+  let nameInput = document.getElementById('custName');
+
+  phoneInput.addEventListener("keyup", function(){
+    let p = phoneInput.value;
+    if(savedCustomers[p]){
+      nameInput.value = savedCustomers[p].name;
+    }
+  });
+
+  currentCart = [];
+}
+
+
+// CUSTOMER – VALIDATION
+function validateCustomer(){
+  let name = document.getElementById('custName').value;
+  let phone = document.getElementById('custPhone').value;
+  let phoneError = document.getElementById('phoneError');
+
+  if(phone.length !== 10 || !/^[0-9]+$/.test(phone)){
+    phoneError.innerHTML = "Please enter a valid 10-digit phone number";
+    return;
+  }
+
+  savedCustomers[phone] = {name};
+
+  phoneError.innerHTML = "";
+  document.getElementById('customerSection').style.display='none';
+  document.getElementById('mealOptions').style.display='block';
+}
+
+
+// MEAL TIME CHECK
+function checkMealTime(meal){
+  let hr = new Date().getHours();
+  let msg = document.getElementById('mealMsg');
+
+  if(meal==='breakfast' && !(hr>=7 && hr<=11)){ msg.innerHTML='Breakfast only from 7 AM to 11 AM'; return; }
+  if(meal==='lunch' && !(hr>=12 && hr<=15)){ msg.innerHTML='Lunch only from 12 PM to 3 PM'; return; }
+  if(meal==='dinner' && !(hr>=18 && hr<=22)){ msg.innerHTML='Dinner only from 6 PM to 10 PM'; return; }
+
+  msg.innerHTML = "";
+  document.getElementById('mealOptions').style.display='none';
+  document.getElementById('vegNonVeg').style.display='block';
+}
+
+
+// SHOW MENU
+function showMenu(type){
+  let menu = document.getElementById('menuSection');
+  menu.style.display = "block";
+
+  let list = fullMenu[type]
+    .map(i => `<option value='${i.name}'>${i.name} - ₹${i.price}</option>`)
+    .join('');
+
+  menu.innerHTML = `
+    <h3>${type === 'veg' ? "Veg" : "Non-Veg"} Menu</h3>
+    <select id='foodItem'>${list}</select><br><br>
+    
+    <input type='number' id='qty' placeholder='Quantity' min='1' /><br><br>
+    
+    <button onclick='addToCart()'>Add to Cart</button>
+    <button onclick='proceedToPayment()'>Proceed to Payment</button>`;
+}
+
+
+// ADD TO CART
+function addToCart(){
+  let itemName = document.getElementById('foodItem').value;
+  let qty = Number(document.getElementById('qty').value);
+
+  if(qty < 1){
+    alert("Enter valid quantity");
+    return;
+  }
+
+  let item = [...fullMenu.veg, ...fullMenu.nonveg].find(i => i.name === itemName);
+
+  currentCart.push({
+    name: item.name,
+    price: item.price,
+    qty
+  });
+
+  alert("Item added to cart!");
+}
+
+
+// PAYMENT PAGE
+function proceedToPayment(){
+  document.getElementById('menuSection').style.display = "none";
+
+  let next = document.getElementById('nextPage');
+  next.style.display = "block";
+
+  let total = currentCart.reduce((sum, i) => sum + i.price * i.qty, 0);
+
+  let cartHtml = currentCart
+    .map(i => `<p>${i.name} x ${i.qty} = ₹${i.price * i.qty}</p>`)
+    .join('');
+
+  next.innerHTML = `
+    <h2>Payment & Cart</h2>
+    ${cartHtml}
+    <h3>Total Amount: <span style='color:yellow;'>₹${total}</span></h3>
+
+    <h3>Select Payment Mode</h3>
+    <select id='payMode' onchange='showQR()'>
+      <option value='GPAY'>GPAY</option>
+      <option value='Cash'>Cash</option>
+    </select><br><br>
+
+    <div id="qrSection"></div>
+
+    <button onclick='confirmOrder(${total})'>Confirm Order</button>`;
+}
+
+
+// SHOW QR CODE WHEN GPAY SELECTED
+function showQR(){
+  let mode = document.getElementById("payMode").value;
+  let qrDiv = document.getElementById("qrSection");
+
+  if(mode === "GPAY"){
+    qrDiv.innerHTML = `
+      <h3>Scan to Pay</h3>
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=SmartCanteenPayment"
+           style="width:200px; height:200px; background:white; padding:10px; border-radius:10px;">
+    `;
+  } else {
+    qrDiv.innerHTML = "";
+  }
+}
+
+
+// CONFIRM ORDER
+function confirmOrder(total){
+  let pay = document.getElementById('payMode').value;
+  let name = document.getElementById('custName').value;
+  let phone = document.getElementById('custPhone').value;
+
+  let token = tokenCounter++;
+  let prepTime = 30;
+
+  orders.push({
+    token,
+    name,
+    phone,
+    items: currentCart,
+    total,
+    pay,
+    prep: prepTime
+  });
+
+  alert(`
+Order Confirmed!
+Token Number: ${token}
+Total Amount: ₹${total}
+Payment: ${pay}
+Preparation Time: ${prepTime} mins`);
+
+  document.getElementById('nextPage').style.display = "none";
+  document.getElementById('loginBox').style.display = "block";
+}
+
+</script>
+
+</body>
+</html>
